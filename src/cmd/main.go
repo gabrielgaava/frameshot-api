@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"example/web-service-gin/src/adapters/handler/http"
+	"example/web-service-gin/src/adapters/storage/bucket"
 	"example/web-service-gin/src/adapters/storage/postgres"
 	"example/web-service-gin/src/adapters/storage/postgres/repository"
 	"example/web-service-gin/src/core/usecase"
 	"example/web-service-gin/src/infra/configuration"
+	"example/web-service-gin/src/infra/middleware"
 	"github.com/gin-gonic/gin"
 	"log/slog"
 	HTTP "net/http"
@@ -83,11 +85,13 @@ func main() {
 	slog.Info("Successfully migrated the database")
 
 	//Dependency Injection
+	s3Storage := bucket.NewS3Bucket(config.AWS)
 	requestRepository := repository.NewPGRequestRepository(db)
-	requestUseCase := usecase.NewRequestUseCase(requestRepository)
+	requestUseCase := usecase.NewRequestUseCase(requestRepository, s3Storage)
 	requestHandler := http.NewRequestHandler(requestUseCase)
 
 	router := gin.Default()
+	router.Use(middleware.JwtServiceMiddleware(config.AWS.CognitoJwksUrl))
 	router.MaxMultipartMemory = 8 << 20
 	router.GET("/albums", getAlbums)
 	router.POST("/albums", postAlbums)

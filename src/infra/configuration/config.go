@@ -37,10 +37,12 @@ type (
 	}
 
 	Aws struct {
-		Region       string
-		ClientId     string
-		Secret       string
-		SessionToken string
+		Region         string
+		ClientId       string
+		Secret         string
+		SessionToken   string
+		BucketName     string
+		CognitoJwksUrl string
 	}
 )
 
@@ -75,10 +77,12 @@ func New() (*Container, error) {
 	}
 
 	aws := &Aws{
-		Region:       os.Getenv("AWS_REGION"),
-		ClientId:     os.Getenv("AWS_CLIENT_ID"),
-		Secret:       os.Getenv("AWS_SECRET_KEY"),
-		SessionToken: os.Getenv("AWS_SESSION_TOKEN"),
+		Region:         os.Getenv("AWS_REGION"),
+		ClientId:       os.Getenv("AWS_CLIENT_ID"),
+		Secret:         os.Getenv("AWS_SECRET_KEY"),
+		SessionToken:   os.Getenv("AWS_SESSION_TOKEN"),
+		BucketName:     os.Getenv("AWS_BUCKET_NAME"),
+		CognitoJwksUrl: os.Getenv("AWS_COGNITO_JWKS_URL"),
 	}
 
 	return &Container{

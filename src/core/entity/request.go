@@ -14,8 +14,10 @@ const (
 type Request struct {
 	ID           uint64
 	UserId       string
-	VideoUrl     string
-	ZipOutputUrl *string
+	UserEmail    string
+	VideoSize    int64
+	VideoKey     string
+	ZipOutputKey *string
 	Status       RequestStatus
 	CreatedAt    time.Time
 	FinishedAt   *time.Time

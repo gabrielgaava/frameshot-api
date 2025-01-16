@@ -25,8 +25,8 @@ func NewPGRequestRepository(db *postgres.DB) *PGRequestRepository {
 func (repository *PGRequestRepository) CreateRequest(ctx context.Context, request *entity.Request) (*entity.Request, error) {
 
 	query := repository.db.QueryBuilder.Insert("requests").
-		Columns("user_id", "video_url", "zip_output_url", "status", "created_at").
-		Values(request.UserId, request.VideoUrl, request.ZipOutputUrl, request.Status, request.CreatedAt).
+		Columns("user_id", "user_email", "video_size", "video_key", "zip_output_key", "status", "created_at").
+		Values(request.UserId, request.UserEmail, request.VideoSize, request.VideoKey, request.ZipOutputKey, request.Status, request.CreatedAt).
 		Suffix("RETURNING *")
 
 	sql, args, err := query.ToSql()
@@ -37,8 +37,10 @@ func (repository *PGRequestRepository) CreateRequest(ctx context.Context, reques
 	err = repository.db.QueryRow(ctx, sql, args...).Scan(
 		&request.ID,
 		&request.UserId,
-		&request.VideoUrl,
-		&request.ZipOutputUrl,
+		&request.UserEmail,
+		&request.VideoSize,
+		&request.VideoKey,
+		&request.ZipOutputKey,
 		&request.Status,
 		&request.CreatedAt,
 		&request.FinishedAt,
@@ -87,8 +89,10 @@ func (repository *PGRequestRepository) GetAllUserRequests(ctx context.Context, u
 		err := rows.Scan(
 			&request.ID,
 			&request.UserId,
-			&request.VideoUrl,
-			&request.ZipOutputUrl,
+			&request.UserEmail,
+			&request.VideoSize,
+			&request.VideoKey,
+			&request.ZipOutputKey,
 			&request.Status,
 			&request.CreatedAt,
 			&request.FinishedAt,
