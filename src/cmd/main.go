@@ -3,55 +3,53 @@ package main
 import (
 	"context"
 	"example/web-service-gin/src/adapters/handler/http"
+	"example/web-service-gin/src/adapters/handler/queue"
 	"example/web-service-gin/src/adapters/storage/bucket"
 	"example/web-service-gin/src/adapters/storage/postgres"
 	"example/web-service-gin/src/adapters/storage/postgres/repository"
 	"example/web-service-gin/src/core/usecase"
 	"example/web-service-gin/src/infra/configuration"
 	"example/web-service-gin/src/infra/middleware"
-	"github.com/gin-gonic/gin"
 	"log/slog"
-	HTTP "net/http"
 	"os"
+
+	"github.com/gin-gonic/gin"
 )
-
-// album represents data about a record album.
-type album struct {
-	ID     string  `json:"id"`
-	Title  string  `json:"title"`
-	Artist string  `json:"artist"`
-	Price  float64 `json:"price"`
-}
-
-// albums slice to seed record album data.
-var albums = []album{
-	{ID: "1", Title: "Blue Train", Artist: "John Coltrane", Price: 56.99},
-	{ID: "2", Title: "Jeru", Artist: "Gerry Mulligan", Price: 17.99},
-	{ID: "3", Title: "Sarah Vaughan and Clifford Brown", Artist: "Sarah Vaughan", Price: 39.99},
-}
-
-// getAlbums responds with the list of all albums as JSON.
-func getAlbums(c *gin.Context) {
-	c.IndentedJSON(HTTP.StatusOK, albums)
-}
-
-// postAlbums adds an album from JSON received in the request body.
-func postAlbums(c *gin.Context) {
-	var newAlbum album
-
-	// Call BindJSON to bind the received JSON to
-	// newAlbum.
-	if err := c.BindJSON(&newAlbum); err != nil {
-		return
-	}
-
-	// Add the new album to the slice.
-	albums = append(albums, newAlbum)
-	c.IndentedJSON(HTTP.StatusCreated, newAlbum)
-}
 
 func main() {
 
+	config := loadEnv()
+	slog.Info("Starting the application", "app", config.App.Name, "env", config.App.Env)
+
+	ctx := context.Background()
+	db := loadDatabase(ctx, &config)
+	defer db.Close()
+
+	// Setting SQS
+	queueHandler := queue.NewSQSHandler(config.AWS)
+	sqsProducer := queue.NewSQSProducer(queueHandler, config.AWS.VideoInputQueueUrl)
+
+	//Dependency Injection
+	s3Storage := bucket.NewS3Bucket(config.AWS, ctx)
+	requestRepository := repository.NewPGRequestRepository(db)
+	requestUseCase := usecase.NewRequestUseCase(requestRepository, s3Storage, sqsProducer) // COLOCAR AQ O BAGUI
+	requestHandler := http.NewRequestHandler(requestUseCase)
+
+	// Starting Queue Consumers
+	go queue.StartQueueConsumer(queueHandler, config.AWS.S3QueueUrl, requestUseCase.HandleUploadNotification, ctx)
+
+	// Routes and Middlewares Settings
+	router := gin.Default()
+	router.Use(middleware.JwtServiceMiddleware(config.AWS.CognitoJwksUrl))
+	router.MaxMultipartMemory = 8 << 20
+	router.POST("/requests", requestHandler.Register)
+	router.GET("/requests", requestHandler.ListUsers)
+
+	defer router.Run("localhost:8080")
+}
+
+// Load de .env file and create a pointer to all its configuration keys
+func loadEnv() configuration.Container {
 	config, err := configuration.New()
 
 	if err != nil {
@@ -59,12 +57,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Set logger
-	// logger.Set(configuration.App)
+	return *config
+}
 
-	slog.Info("Starting the application", "app", config.App.Name, "env", config.App.Env)
-
-	ctx := context.Background()
+// Validate database connection and start the migrations
+func loadDatabase(ctx context.Context, config *configuration.Container) *postgres.DB {
 	db, err := postgres.New(ctx, config.DB)
 
 	if err != nil {
@@ -72,7 +69,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	defer db.Close()
 	slog.Info("Successfully connected to the database", "db", config.DB.Connection)
 
 	// Migrate database
@@ -83,20 +79,5 @@ func main() {
 	}
 
 	slog.Info("Successfully migrated the database")
-
-	//Dependency Injection
-	s3Storage := bucket.NewS3Bucket(config.AWS)
-	requestRepository := repository.NewPGRequestRepository(db)
-	requestUseCase := usecase.NewRequestUseCase(requestRepository, s3Storage)
-	requestHandler := http.NewRequestHandler(requestUseCase)
-
-	router := gin.Default()
-	router.Use(middleware.JwtServiceMiddleware(config.AWS.CognitoJwksUrl))
-	router.MaxMultipartMemory = 8 << 20
-	router.GET("/albums", getAlbums)
-	router.POST("/albums", postAlbums)
-	router.POST("/requests", requestHandler.Register)
-	router.GET("/requests", requestHandler.ListUsers)
-
-	router.Run("localhost:8080")
+	return db
 }

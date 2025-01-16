@@ -2,9 +2,12 @@ package usecase
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"example/web-service-gin/src/adapters/storage/bucket"
 	"example/web-service-gin/src/core/entity"
 	"example/web-service-gin/src/core/port"
+	"fmt"
 	"mime/multipart"
 	"strings"
 	"time"
@@ -13,17 +16,19 @@ import (
 type RequestUseCase struct {
 	repository port.RequestRepository
 	storage    port.StoragePort
+	notication port.RequestNotificaitons
 }
 
 // NewRequestUseCase creates a new user service instance
-func NewRequestUseCase(repo port.RequestRepository, storage port.StoragePort) *RequestUseCase {
+func NewRequestUseCase(repo port.RequestRepository, storage port.StoragePort, notif port.RequestNotificaitons) *RequestUseCase {
 	return &RequestUseCase{
 		repo,
 		storage,
+		notif,
 	}
 }
 
-func (service *RequestUseCase) Create(ctx context.Context, request *entity.Request, file *multipart.FileHeader) (*entity.Request, error) {
+func (usecase *RequestUseCase) Create(ctx context.Context, request *entity.Request, file *multipart.FileHeader) (*entity.Request, error) {
 
 	_, err := validateFileRules(file)
 	fileKeyName := generateFileKey(request.UserId, file)
@@ -35,7 +40,7 @@ func (service *RequestUseCase) Create(ctx context.Context, request *entity.Reque
 
 	request.Status = entity.Pending
 	request.CreatedAt = time.Now()
-	fileKey, err := service.storage.UploadFile(file, fileKeyName)
+	fileKey, err := usecase.storage.UploadFile(file, fileKeyName)
 
 	// Storage Error
 	if err != nil {
@@ -44,7 +49,7 @@ func (service *RequestUseCase) Create(ctx context.Context, request *entity.Reque
 
 	request.VideoKey = fileKey
 	request.VideoSize = file.Size
-	createdRequest, err := service.repository.CreateRequest(ctx, request)
+	createdRequest, err := usecase.repository.CreateRequest(ctx, request)
 
 	// Repository Error
 	if err == nil {
@@ -55,12 +60,12 @@ func (service *RequestUseCase) Create(ctx context.Context, request *entity.Reque
 
 }
 
-func (service *RequestUseCase) Update(ctx context.Context, request *entity.Request) (*entity.Request, error) {
+func (usecase *RequestUseCase) Update(ctx context.Context, request *entity.Request) (*entity.Request, error) {
 	return nil, nil
 }
 
-func (service *RequestUseCase) List(ctx context.Context, userId string) ([]entity.Request, error) {
-	requestList, err := service.repository.GetAllUserRequests(ctx, userId)
+func (usecase *RequestUseCase) List(ctx context.Context, userId string) ([]entity.Request, error) {
+	requestList, err := usecase.repository.GetAllUserRequests(ctx, userId)
 
 	if err != nil {
 		return nil, err
@@ -69,8 +74,37 @@ func (service *RequestUseCase) List(ctx context.Context, userId string) ([]entit
 	return requestList, nil
 }
 
-func (service *RequestUseCase) Get(ctx context.Context, id string) (*entity.Request, error) {
+func (usecase *RequestUseCase) Get(ctx context.Context, id string) (*entity.Request, error) {
 	return nil, nil
+}
+
+func (usecase *RequestUseCase) HandleUploadNotification(ctx context.Context, msg entity.EventMessage) {
+
+	var event bucket.S3Event
+	var bodyMessage string = msg.Body
+
+	err := json.Unmarshal([]byte(bodyMessage), &event)
+	if err != nil {
+		fmt.Println("Error converting body message: ", err)
+		return
+	}
+
+	// Loop for each record of the S3 Event
+	for _, record := range event.Records {
+		if record.S3.ConfigurationID == "VideoUploaded" {
+			var fileKey string = record.S3.Object.Key
+			fmt.Println("Bucket:", record.S3.Bucket.Name)
+			fmt.Println("Key:", record.S3.Object.Key)
+			fmt.Println("Size:", record.S3.Object.Size)
+
+			// Update status on Database
+			request, _ := usecase.repository.UpdateStatusByVideoKey(ctx, string(entity.InProgress), fileKey)
+
+			// Sent Message to SQS to Start Upload
+			usecase.notication.SendVideoProccessToQueue(request)
+		}
+	}
+
 }
 
 func validateFileRules(file *multipart.FileHeader) (bool, error) {
@@ -100,6 +134,3 @@ func generateFileKey(userId string, file *multipart.FileHeader) string {
 
 	return fileKey
 }
-
-// KB to MB
-// (file.Size / 1024) / 1000

@@ -1,6 +1,9 @@
 package configuration
 
 import (
+	"context"
+	awslib "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/joho/godotenv"
 	"os"
 )
@@ -37,12 +40,11 @@ type (
 	}
 
 	Aws struct {
-		Region         string
-		ClientId       string
-		Secret         string
-		SessionToken   string
-		BucketName     string
-		CognitoJwksUrl string
+		Config             awslib.Config
+		BucketName         string
+		CognitoJwksUrl     string
+		S3QueueUrl         string
+		VideoInputQueueUrl string
 	}
 )
 
@@ -76,13 +78,14 @@ func New() (*Container, error) {
 		AllowedOrigins: os.Getenv("HTTP_ALLOWED_ORIGINS"),
 	}
 
+	awsConfiguration, _ := config.LoadDefaultConfig(context.Background())
+
 	aws := &Aws{
-		Region:         os.Getenv("AWS_REGION"),
-		ClientId:       os.Getenv("AWS_CLIENT_ID"),
-		Secret:         os.Getenv("AWS_SECRET_KEY"),
-		SessionToken:   os.Getenv("AWS_SESSION_TOKEN"),
-		BucketName:     os.Getenv("AWS_BUCKET_NAME"),
-		CognitoJwksUrl: os.Getenv("AWS_COGNITO_JWKS_URL"),
+		Config:             awsConfiguration,
+		BucketName:         os.Getenv("AWS_BUCKET_NAME"),
+		CognitoJwksUrl:     os.Getenv("AWS_COGNITO_JWKS_URL"),
+		S3QueueUrl:         os.Getenv("AWS_S3_QUEUE_URL"),
+		VideoInputQueueUrl: os.Getenv("AWS_VIDEO_INPUT_QUEUE_URL"),
 	}
 
 	return &Container{

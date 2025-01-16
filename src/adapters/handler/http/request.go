@@ -4,10 +4,11 @@ import (
 	"example/web-service-gin/src/core/entity"
 	"example/web-service-gin/src/core/port"
 	"example/web-service-gin/src/utils"
-	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 type RequestHandler struct {
@@ -46,25 +47,25 @@ func (handler *RequestHandler) Register(ctx *gin.Context) {
 	jwtService := jwtServiceInterface.(*utils.JwtService)
 
 	jwtToken := ctx.Request.Header.Get("Authorization")
+	user, err := jwtService.GetUser(jwtToken)
 
-	user, _ := jwtService.GetUser(jwtToken)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid JWT token."})
+		return
+	}
 
-	form, _ := ctx.MultipartForm()
 	file, _ := ctx.FormFile("video_file")
 	log.Println(file.Filename)
-	log.Println(form)
 
 	request := entity.Request{
 		UserId:    user.Id,
 		UserEmail: user.Email,
-		VideoKey:  form.Value["video_url"][0],
 	}
 
-	_, err := handler.service.Create(ctx, &request, file)
+	_, err = handler.service.Create(ctx, &request, file)
 
 	if err != nil {
-		// handleError(ctx, err)
-		ctx.JSON(http.StatusBadRequest, err.Error())
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "request not saved. Try again later."})
 		return
 	}
 

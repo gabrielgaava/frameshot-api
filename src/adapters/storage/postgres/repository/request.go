@@ -6,6 +6,8 @@ import (
 	"example/web-service-gin/src/core"
 	"example/web-service-gin/src/core/entity"
 	"log"
+
+	sq "github.com/Masterminds/squirrel"
 )
 
 // PGRequestRepository implements port.RequestRepository interface
@@ -110,4 +112,37 @@ func (repository *PGRequestRepository) GetAllUserRequests(ctx context.Context, u
 
 func (repository *PGRequestRepository) UpdateRequest(ctx context.Context, request *entity.Request) (*entity.Request, error) {
 	return nil, nil
+}
+
+func (repository *PGRequestRepository) UpdateStatusByVideoKey(ctx context.Context, status string, videoKey string) (*entity.Request, error) {
+
+	var request = entity.Request{}
+	condition := sq.Eq{"video_key": videoKey}
+	updatedData := map[string]interface{}{
+		"status": status,
+	}
+
+	query := repository.db.QueryBuilder.Update("requests").
+		SetMap(updatedData).
+		Where(condition).
+		Suffix("RETURNING *")
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return nil, err
+	}
+
+	repository.db.QueryRow(ctx, sql, args...).Scan(
+		&request.ID,
+		&request.UserId,
+		&request.UserEmail,
+		&request.VideoSize,
+		&request.VideoKey,
+		&request.ZipOutputKey,
+		&request.Status,
+		&request.CreatedAt,
+		&request.FinishedAt,
+	)
+
+	return &request, nil
 }
