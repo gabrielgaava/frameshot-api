@@ -11,6 +11,9 @@ type RequestRepository interface {
 	// CreateRequest creates a new Request on database and return it
 	CreateRequest(ctx context.Context, request *entity.Request) (*entity.Request, error)
 
+	// GetById searchs for a request with informed ID
+	GetById(ctx context.Context, id uint64) (*entity.Request, error)
+
 	//GetAllUserRequests returns a list of all user requests
 	GetAllUserRequests(ctx context.Context, userId string) ([]entity.Request, error)
 
@@ -25,7 +28,9 @@ type RequestService interface {
 	Create(ctx context.Context, request *entity.Request, file *multipart.FileHeader) (*entity.Request, error)
 	Update(ctx context.Context, request *entity.Request) (*entity.Request, error)
 	List(ctx context.Context, userId string) ([]entity.Request, error)
-	Get(ctx context.Context, id string) (*entity.Request, error)
+	Get(ctx context.Context, id uint64) (*entity.Request, error)
+	HandleUploadNotification(ctx context.Context, msg entity.EventMessage)
+	HandleVideoOutputNotification(ctx context.Context, msg entity.EventMessage)
 }
 
 type RequestNotificaitons interface {

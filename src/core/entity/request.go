@@ -17,8 +17,8 @@ type Request struct {
 	UserEmail    string
 	VideoSize    int64
 	VideoKey     string
-	ZipOutputKey *string
+	ZipOutputKey string
 	Status       RequestStatus
 	CreatedAt    time.Time
-	FinishedAt   *time.Time
+	FinishedAt   time.Time
 }

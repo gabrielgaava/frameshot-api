@@ -37,6 +37,7 @@ func main() {
 
 	// Starting Queue Consumers
 	go queue.StartQueueConsumer(queueHandler, config.AWS.S3QueueUrl, requestUseCase.HandleUploadNotification, ctx)
+	go queue.StartQueueConsumer(queueHandler, config.AWS.VideoOutputQueueUrl, requestUseCase.HandleVideoOutputNotification, ctx)
 
 	// Routes and Middlewares Settings
 	router := gin.Default()

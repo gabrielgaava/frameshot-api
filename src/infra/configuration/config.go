@@ -2,10 +2,11 @@ package configuration
 
 import (
 	"context"
+	"os"
+
 	awslib "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/joho/godotenv"
-	"os"
 )
 
 // Container contains environment variables for the application, database, cache, token, and http server
@@ -40,11 +41,12 @@ type (
 	}
 
 	Aws struct {
-		Config             awslib.Config
-		BucketName         string
-		CognitoJwksUrl     string
-		S3QueueUrl         string
-		VideoInputQueueUrl string
+		Config              awslib.Config
+		BucketName          string
+		CognitoJwksUrl      string
+		S3QueueUrl          string
+		VideoInputQueueUrl  string
+		VideoOutputQueueUrl string
 	}
 )
 
@@ -81,11 +83,12 @@ func New() (*Container, error) {
 	awsConfiguration, _ := config.LoadDefaultConfig(context.Background())
 
 	aws := &Aws{
-		Config:             awsConfiguration,
-		BucketName:         os.Getenv("AWS_BUCKET_NAME"),
-		CognitoJwksUrl:     os.Getenv("AWS_COGNITO_JWKS_URL"),
-		S3QueueUrl:         os.Getenv("AWS_S3_QUEUE_URL"),
-		VideoInputQueueUrl: os.Getenv("AWS_VIDEO_INPUT_QUEUE_URL"),
+		Config:              awsConfiguration,
+		BucketName:          os.Getenv("AWS_BUCKET_NAME"),
+		CognitoJwksUrl:      os.Getenv("AWS_COGNITO_JWKS_URL"),
+		S3QueueUrl:          os.Getenv("AWS_S3_QUEUE_URL"),
+		VideoInputQueueUrl:  os.Getenv("AWS_VIDEO_INPUT_QUEUE_URL"),
+		VideoOutputQueueUrl: os.Getenv("AWS_VIDEO_OUTPUT_QUEUE_URL"),
 	}
 
 	return &Container{

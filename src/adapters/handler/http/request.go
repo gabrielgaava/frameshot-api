@@ -43,17 +43,7 @@ type CreateRequestBody struct {
 //	@Router			/users [post]
 func (handler *RequestHandler) Register(ctx *gin.Context) {
 
-	jwtServiceInterface, _ := ctx.Get("jwtService")
-	jwtService := jwtServiceInterface.(*utils.JwtService)
-
-	jwtToken := ctx.Request.Header.Get("Authorization")
-	user, err := jwtService.GetUser(jwtToken)
-
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid JWT token."})
-		return
-	}
-
+	user := getAuthUser(ctx)
 	file, _ := ctx.FormFile("video_file")
 	log.Println(file.Filename)
 
@@ -62,9 +52,9 @@ func (handler *RequestHandler) Register(ctx *gin.Context) {
 		UserEmail: user.Email,
 	}
 
-	_, err = handler.service.Create(ctx, &request, file)
+	_, createError := handler.service.Create(ctx, &request, file)
 
-	if err != nil {
+	if createError != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "request not saved. Try again later."})
 		return
 	}
@@ -75,11 +65,10 @@ func (handler *RequestHandler) Register(ctx *gin.Context) {
 
 func (handler *RequestHandler) ListUsers(ctx *gin.Context) {
 
-	log.Println("Controler do GET")
-
+	user := getAuthUser(ctx)
 	var requestList []requestResponse
 
-	requests, err := handler.service.List(ctx, "123123123asd")
+	requests, err := handler.service.List(ctx, user.Id)
 	if err != nil {
 		//handleError(ctx, err)
 		return
@@ -92,16 +81,31 @@ func (handler *RequestHandler) ListUsers(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, requestList)
 }
 
+func getAuthUser(ctx *gin.Context) *entity.User {
+	jwtServiceInterface, _ := ctx.Get("jwtService")
+	jwtService := jwtServiceInterface.(*utils.JwtService)
+
+	jwtToken := ctx.Request.Header.Get("Authorization")
+	user, err := jwtService.GetUser(jwtToken)
+
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid JWT token."})
+		return nil
+	}
+
+	return user
+}
+
 type requestResponse struct {
 	ID           uint64               `json:"id" example:"1"`
 	UserId       string               `json:"user_id" example:"1231231231"`
 	UserEmail    string               `json:"user_email" example:"user@example.com"`
 	VideoSize    int64                `json:"video_size" example:"1048576"`
 	VideoKey     string               `json:"video_url" example:"https://google.com"`
-	ZipOutputKey *string              `json:"zip_output_key" example:"123456"`
+	ZipOutputKey string               `json:"zip_output_key" example:"123456"`
 	Status       entity.RequestStatus `json:"status" example:"PENDING"`
 	CreatedAt    time.Time            `json:"created_at" example:"1970-01-01T00:00:00Z"`
-	FinishedAt   *time.Time           `json:"finished_at" example:"1970-01-01T00:00:00Z"`
+	FinishedAt   time.Time            `json:"finished_at" example:"1970-01-01T00:00:00Z"`
 }
 
 func newRequestResponse(request *entity.Request) requestResponse {

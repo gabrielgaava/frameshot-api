@@ -5,9 +5,9 @@ import (
 	"example/web-service-gin/src/adapters/storage/postgres"
 	"example/web-service-gin/src/core"
 	"example/web-service-gin/src/core/entity"
-	"log"
 
 	sq "github.com/Masterminds/squirrel"
+	"github.com/jackc/pgx/v5"
 )
 
 // PGRequestRepository implements port.RequestRepository interface
@@ -36,17 +36,8 @@ func (repository *PGRequestRepository) CreateRequest(ctx context.Context, reques
 		return nil, err
 	}
 
-	err = repository.db.QueryRow(ctx, sql, args...).Scan(
-		&request.ID,
-		&request.UserId,
-		&request.UserEmail,
-		&request.VideoSize,
-		&request.VideoKey,
-		&request.ZipOutputKey,
-		&request.Status,
-		&request.CreatedAt,
-		&request.FinishedAt,
-	)
+	row := repository.db.QueryRow(ctx, sql, args...)
+	request, err = mapRowToRequest(row)
 
 	if err != nil {
 		if errCode := repository.db.ErrorCode(err); errCode == "23505" {
@@ -58,11 +49,25 @@ func (repository *PGRequestRepository) CreateRequest(ctx context.Context, reques
 	return request, nil
 }
 
+func (repository *PGRequestRepository) GetById(ctx context.Context, id uint64) (*entity.Request, error) {
+	condition := sq.Eq{"id": id}
+	query := repository.db.QueryBuilder.Select("*").
+		From("requests").
+		Where(condition).
+		Limit(1)
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return nil, err
+	}
+
+	row := repository.db.QueryRow(ctx, sql, args...)
+	request, _ := mapRowToRequest(row)
+
+	return request, nil
+}
+
 func (repository *PGRequestRepository) GetAllUserRequests(ctx context.Context, userId string) ([]entity.Request, error) {
-
-	log.Println("GET ALL DATABASE")
-
-	var request entity.Request
 	var userRequests []entity.Request
 
 	query := repository.db.QueryBuilder.Select("*").
@@ -79,44 +84,48 @@ func (repository *PGRequestRepository) GetAllUserRequests(ctx context.Context, u
 	// Runs the SQL and return in rows
 	rows, err := repository.db.Query(ctx, sql, args...)
 
-	log.Println(rows)
-
 	if err != nil {
 		return nil, err
 	}
 
 	defer rows.Close()
-
-	for rows.Next() {
-		err := rows.Scan(
-			&request.ID,
-			&request.UserId,
-			&request.UserEmail,
-			&request.VideoSize,
-			&request.VideoKey,
-			&request.ZipOutputKey,
-			&request.Status,
-			&request.CreatedAt,
-			&request.FinishedAt,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		userRequests = append(userRequests, request)
-	}
+	userRequests, _ = mapRowListToRequest(rows)
 
 	return userRequests, nil
-
 }
 
 func (repository *PGRequestRepository) UpdateRequest(ctx context.Context, request *entity.Request) (*entity.Request, error) {
-	return nil, nil
+	condition := sq.Eq{"id": request.ID}
+	updatedData := map[string]interface{}{
+		"user_email":     request.UserEmail,
+		"video_size":     request.VideoSize,
+		"video_key":      request.VideoKey,
+		"zip_output_key": request.ZipOutputKey,
+		"status":         request.Status,
+		"finished_at":    request.FinishedAt,
+	}
+
+	query := repository.db.QueryBuilder.Update("requests").
+		SetMap(updatedData).
+		Where(condition).
+		Suffix("RETURNING *")
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return nil, err
+	}
+
+	row := repository.db.QueryRow(ctx, sql, args...)
+	updatedRequest, err := mapRowToRequest(row)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return updatedRequest, nil
 }
 
 func (repository *PGRequestRepository) UpdateStatusByVideoKey(ctx context.Context, status string, videoKey string) (*entity.Request, error) {
-
-	var request = entity.Request{}
 	condition := sq.Eq{"video_key": videoKey}
 	updatedData := map[string]interface{}{
 		"status": status,
@@ -132,7 +141,21 @@ func (repository *PGRequestRepository) UpdateStatusByVideoKey(ctx context.Contex
 		return nil, err
 	}
 
-	repository.db.QueryRow(ctx, sql, args...).Scan(
+	row := repository.db.QueryRow(ctx, sql, args...)
+	updatedRequest, err := mapRowToRequest(row)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return updatedRequest, nil
+}
+
+// Map a row of database data to domain entity Request model
+func mapRowToRequest(row pgx.Row) (*entity.Request, error) {
+	var request RequestModel
+
+	err := row.Scan(
 		&request.ID,
 		&request.UserId,
 		&request.UserEmail,
@@ -144,5 +167,46 @@ func (repository *PGRequestRepository) UpdateStatusByVideoKey(ctx context.Contex
 		&request.FinishedAt,
 	)
 
-	return &request, nil
+	if err != nil {
+		return nil, err
+	}
+
+	return modelToEntity(request), nil
+}
+
+// Map the rows (list) to domain entity Request model
+func mapRowListToRequest(rows pgx.Rows) ([]entity.Request, error) {
+	var requests []entity.Request
+	for rows.Next() {
+		request, err := mapRowToRequest(rows)
+		if err != nil {
+			return nil, err
+		}
+		requests = append(requests, *request)
+	}
+
+	return requests, nil
+}
+
+func modelToEntity(model RequestModel) *entity.Request {
+
+	var data = entity.Request{
+		ID:        model.ID,
+		UserId:    model.UserId,
+		UserEmail: model.UserEmail,
+		VideoSize: model.VideoSize,
+		VideoKey:  model.VideoKey,
+		Status:    entity.RequestStatus(model.Status),
+		CreatedAt: model.CreatedAt,
+	}
+
+	if model.ZipOutputKey.Valid {
+		data.ZipOutputKey = model.ZipOutputKey.String
+	}
+
+	if model.FinishedAt.Valid {
+		data.FinishedAt = model.FinishedAt.Time
+	}
+
+	return &data
 }

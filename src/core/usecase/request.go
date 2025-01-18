@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"example/web-service-gin/src/adapters/handler/queue"
 	"example/web-service-gin/src/adapters/storage/bucket"
 	"example/web-service-gin/src/core/entity"
 	"example/web-service-gin/src/core/port"
@@ -49,19 +50,27 @@ func (usecase *RequestUseCase) Create(ctx context.Context, request *entity.Reque
 
 	request.VideoKey = fileKey
 	request.VideoSize = file.Size
-	createdRequest, err := usecase.repository.CreateRequest(ctx, request)
+	request, err = usecase.repository.CreateRequest(ctx, request)
 
 	// Repository Error
 	if err == nil {
 		return nil, err
 	}
 
-	return createdRequest, nil
+	return request, nil
 
 }
 
 func (usecase *RequestUseCase) Update(ctx context.Context, request *entity.Request) (*entity.Request, error) {
-	return nil, nil
+
+	updatedRequest, err := usecase.repository.UpdateRequest(ctx, request)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return updatedRequest, nil
+
 }
 
 func (usecase *RequestUseCase) List(ctx context.Context, userId string) ([]entity.Request, error) {
@@ -74,8 +83,15 @@ func (usecase *RequestUseCase) List(ctx context.Context, userId string) ([]entit
 	return requestList, nil
 }
 
-func (usecase *RequestUseCase) Get(ctx context.Context, id string) (*entity.Request, error) {
-	return nil, nil
+func (usecase *RequestUseCase) Get(ctx context.Context, id uint64) (*entity.Request, error) {
+
+	request, err := usecase.repository.GetById(ctx, id)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return request, nil
 }
 
 func (usecase *RequestUseCase) HandleUploadNotification(ctx context.Context, msg entity.EventMessage) {
@@ -105,6 +121,43 @@ func (usecase *RequestUseCase) HandleUploadNotification(ctx context.Context, msg
 		}
 	}
 
+}
+
+func (usecase *RequestUseCase) HandleVideoOutputNotification(ctx context.Context, msg entity.EventMessage) {
+
+	var notification queue.SnapVideoResponse
+	var bodyMessage string = msg.Body
+
+	err := json.Unmarshal([]byte(bodyMessage), &notification)
+	if err != nil {
+		fmt.Println("Error converting body message: ", err)
+		return
+	}
+
+	videoRequest, getError := usecase.Get(ctx, notification.Id)
+
+	if getError != nil {
+		fmt.Println("Invalid request ID: ", err)
+		return
+	}
+
+	videoRequest.FinishedAt = time.Now()
+
+	if notification.Status == "OK" {
+		videoRequest.Status = entity.Completed
+		videoRequest.ZipOutputKey = notification.S3ZipFileKey
+	} else {
+		videoRequest.Status = entity.Failed
+	}
+
+	_, updateError := usecase.Update(ctx, videoRequest)
+
+	if updateError != nil {
+		fmt.Println("Error while updating register on database: ", err)
+		return
+	}
+
+	// TODO: SEND EMAIL ?
 }
 
 func validateFileRules(file *multipart.FileHeader) (bool, error) {
