@@ -53,7 +53,7 @@ func (usecase *RequestUseCase) Create(ctx context.Context, request *entity.Reque
 	request, err = usecase.repository.CreateRequest(ctx, request)
 
 	// Repository Error
-	if err == nil {
+	if err != nil {
 		return nil, err
 	}
 

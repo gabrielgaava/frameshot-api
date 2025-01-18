@@ -52,14 +52,14 @@ func (handler *RequestHandler) Register(ctx *gin.Context) {
 		UserEmail: user.Email,
 	}
 
-	_, createError := handler.service.Create(ctx, &request, file)
+	createdRequest, createError := handler.service.Create(ctx, &request, file)
 
 	if createError != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "request not saved. Try again later."})
 		return
 	}
 
-	rsp := newRequestResponse(&request)
+	rsp := newRequestResponse(createdRequest)
 	ctx.JSON(http.StatusCreated, rsp)
 }
 
