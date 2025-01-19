@@ -5,10 +5,11 @@ import (
 	"example/web-service-gin/src/adapters/storage/postgres"
 	"example/web-service-gin/src/core"
 	"example/web-service-gin/src/core/entity"
-
 	sq "github.com/Masterminds/squirrel"
 	"github.com/jackc/pgx/v5"
 )
+
+const ReturnSuffix = "RETURNING *"
 
 // PGRequestRepository implements port.RequestRepository interface
 // * and provides access to the postgres database/**
@@ -29,7 +30,7 @@ func (repository *PGRequestRepository) CreateRequest(ctx context.Context, reques
 	query := repository.db.QueryBuilder.Insert("requests").
 		Columns("user_id", "user_email", "video_size", "video_key", "zip_output_key", "status", "created_at").
 		Values(request.UserId, request.UserEmail, request.VideoSize, request.VideoKey, request.ZipOutputKey, request.Status, request.CreatedAt).
-		Suffix("RETURNING *")
+		Suffix(ReturnSuffix)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -108,7 +109,7 @@ func (repository *PGRequestRepository) UpdateRequest(ctx context.Context, reques
 	query := repository.db.QueryBuilder.Update("requests").
 		SetMap(updatedData).
 		Where(condition).
-		Suffix("RETURNING *")
+		Suffix(ReturnSuffix)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -134,7 +135,7 @@ func (repository *PGRequestRepository) UpdateStatusByVideoKey(ctx context.Contex
 	query := repository.db.QueryBuilder.Update("requests").
 		SetMap(updatedData).
 		Where(condition).
-		Suffix("RETURNING *")
+		Suffix(ReturnSuffix)
 
 	sql, args, err := query.ToSql()
 	if err != nil {

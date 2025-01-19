@@ -157,7 +157,7 @@ func (usecase *RequestUseCase) HandleVideoOutputNotification(ctx context.Context
 		return
 	}
 
-	// TODO: SEND EMAIL ?
+	// SEND EMAIL To User (Analyse how)
 }
 
 func validateFileRules(file *multipart.FileHeader) (bool, error) {
