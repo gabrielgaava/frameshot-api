@@ -3,7 +3,6 @@ package http
 import (
 	"example/web-service-gin/src/core/entity"
 	"example/web-service-gin/src/core/port"
-	"example/web-service-gin/src/utils"
 	"log"
 	"net/http"
 	"time"
@@ -66,11 +65,17 @@ func (handler *RequestHandler) Register(ctx *gin.Context) {
 func (handler *RequestHandler) ListUsers(ctx *gin.Context) {
 
 	user := getAuthUser(ctx)
+
+	if user == nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
 	var requestList []requestResponse
 
 	requests, err := handler.service.List(ctx, user.Id)
 	if err != nil {
-		//handleError(ctx, err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "request not saved. Try again later."})
 		return
 	}
 
@@ -83,13 +88,13 @@ func (handler *RequestHandler) ListUsers(ctx *gin.Context) {
 
 func getAuthUser(ctx *gin.Context) *entity.User {
 	jwtServiceInterface, _ := ctx.Get("jwtService")
-	jwtService := jwtServiceInterface.(*utils.JwtService)
+	jwtService := jwtServiceInterface.(port.JwtService)
 
 	jwtToken := ctx.Request.Header.Get("Authorization")
 	user, err := jwtService.GetUser(jwtToken)
 
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid JWT token."})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return nil
 	}
 

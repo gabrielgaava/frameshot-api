@@ -1,12 +1,13 @@
-package utils
+package mocks
 
 import (
 	"example/web-service-gin/src/core/entity"
+	"github.com/stretchr/testify/mock"
 	"strings"
 	"time"
 )
 
-func GetRequest() entity.Request {
+func MockGetRequest() entity.Request {
 	return entity.Request{
 		ID:           1,
 		UserId:       "user-123",
@@ -20,7 +21,7 @@ func GetRequest() entity.Request {
 	}
 }
 
-func GetMockS3EventBody() string {
+func MockGetMockS3EventBody() string {
 	return `{  
    "Records":[  
       {  
@@ -62,7 +63,7 @@ func GetMockS3EventBody() string {
 }`
 }
 
-func GetMockOutputVideoEventBody(status string) string {
+func MockGetOutputVideoEventBody(status string) string {
 	body := `
 	{
 		"id": 1,
@@ -75,4 +76,17 @@ func GetMockOutputVideoEventBody(status string) string {
 	`
 
 	return strings.ReplaceAll(body, "${status}", status)
+}
+
+type MockJwtService struct {
+	mock.Mock
+}
+
+func (m *MockJwtService) GetUser(token string) (*entity.User, error) {
+	args := m.Called(token)
+	return args.Get(0).(*entity.User), args.Error(1)
+}
+
+func MockGetJwks() string {
+	return "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_ux5HPr3SJ/.well-known/jwks.json"
 }

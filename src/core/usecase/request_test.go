@@ -5,7 +5,7 @@ import (
 	"errors"
 	"example/web-service-gin/src/core/entity"
 	"example/web-service-gin/src/core/usecase"
-	"example/web-service-gin/src/utils"
+	"example/web-service-gin/src/utils/mocks"
 	"github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -237,7 +237,7 @@ func TestHandleUploadNotification_Success(t *testing.T) {
 
 	// Given
 	fileKey := "video_input/test.mp4"
-	s3BodyMock := utils.GetMockS3EventBody()
+	s3BodyMock := mocks.MockGetMockS3EventBody()
 	event := entity.EventMessage{
 		MessageID: "123",
 		Body:      s3BodyMock,
@@ -279,9 +279,9 @@ func TestHandleVideoOutputNotification_UploadError(t *testing.T) {
 
 	// Given
 	var id uint64 = 1
-	notificationBody := utils.GetMockOutputVideoEventBody("ERROR") // ID = 1
+	notificationBody := mocks.MockGetOutputVideoEventBody("ERROR") // ID = 1
 	message := entity.EventMessage{Body: notificationBody}
-	request := utils.GetRequest()
+	request := mocks.MockGetRequest()
 
 	// When
 	repo.On("GetById", ctx, id).Return(&request, nil)
@@ -300,9 +300,9 @@ func TestHandleVideoOutputNotification_UpdateError(t *testing.T) {
 
 	// Given
 	var id uint64 = 1
-	notificationBody := utils.GetMockOutputVideoEventBody("ERROR") // ID = 1
+	notificationBody := mocks.MockGetOutputVideoEventBody("ERROR") // ID = 1
 	message := entity.EventMessage{Body: notificationBody}
-	request := utils.GetRequest()
+	request := mocks.MockGetRequest()
 
 	// When
 	repo.On("GetById", ctx, id).Return(&request, nil)
@@ -337,7 +337,7 @@ func TestHandleVideoOutputNotification_InvalidId(t *testing.T) {
 
 	// Given
 	var id uint64 = 1
-	notificationBody := utils.GetMockOutputVideoEventBody("OK") // ID = 1
+	notificationBody := mocks.MockGetOutputVideoEventBody("OK") // ID = 1
 	message := entity.EventMessage{Body: notificationBody}
 
 	// When
