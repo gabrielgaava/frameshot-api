@@ -4,6 +4,7 @@ import (
 	"context"
 	"example/web-service-gin/src/adapters/handler/http"
 	"example/web-service-gin/src/adapters/handler/queue"
+	"example/web-service-gin/src/adapters/mail"
 	"example/web-service-gin/src/adapters/storage/bucket"
 	"example/web-service-gin/src/adapters/storage/postgres"
 	"example/web-service-gin/src/adapters/storage/postgres/repository"
@@ -25,14 +26,17 @@ func main() {
 	db := loadDatabase(ctx, &config)
 	defer db.Close()
 
+	//Setting Mail Service
+	mailService := mail.NewMailService(config.Mail)
+
 	// Setting SQS
 	queueHandler := queue.NewSQSHandler(config.AWS)
-	sqsProducer := queue.NewSQSProducer(queueHandler, config.AWS.VideoInputQueueUrl)
+	queueProducer := queue.NewSQSProducer(queueHandler, config.AWS.VideoInputQueueUrl)
 
 	//Dependency Injection
 	s3Storage := bucket.NewS3Bucket(config.AWS, ctx)
 	requestRepository := repository.NewPGRequestRepository(db)
-	requestUseCase := usecase.NewRequestUseCase(requestRepository, s3Storage, sqsProducer) // COLOCAR AQ O BAGUI
+	requestUseCase := usecase.NewRequestUseCase(requestRepository, s3Storage, queueProducer, mailService)
 	requestHandler := http.NewRequestHandler(requestUseCase)
 
 	// Starting Queue Consumers

@@ -7,12 +7,12 @@ import (
 )
 
 type SQSProducer struct {
-	Handler  *SQSHandler
-	QueueUrl string
+	SQSHandler *SQSHandler
+	QueueUrl   string
 }
 
 func NewSQSProducer(handler *SQSHandler, url string) *SQSProducer {
-	return &SQSProducer{Handler: handler, QueueUrl: url}
+	return &SQSProducer{SQSHandler: handler, QueueUrl: url}
 }
 
 // SQSHandler structure
@@ -33,7 +33,7 @@ func (h *SQSProducer) SendVideoProccessToQueue(request *entity.Request) error {
 		slog.Error("Error trying to conver entity to JSON", "error", parseError)
 	}
 
-	err := h.Handler.SendMessage(h.QueueUrl, string(jsonData))
+	err := h.SQSHandler.SendMessage(h.QueueUrl, string(jsonData))
 
 	if err != nil {
 		slog.Error("Error trying to send message", "destination", h.QueueUrl)

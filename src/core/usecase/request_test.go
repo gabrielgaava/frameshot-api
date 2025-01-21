@@ -6,12 +6,13 @@ import (
 	"example/web-service-gin/src/core/entity"
 	"example/web-service-gin/src/core/usecase"
 	"example/web-service-gin/src/utils/mocks"
-	"github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"mime/multipart"
 	"testing"
 	"time"
+
+	"github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 type MockRequestRepository struct {
@@ -70,7 +71,7 @@ func setUp() (*MockRequestRepository, *MockStoragePort, *MockRequestNotification
 	mockRepo := new(MockRequestRepository)
 	mockStorage := new(MockStoragePort)
 	mockNotification := new(MockRequestNotifications)
-	requestUsecase := usecase.NewRequestUseCase(mockRepo, mockStorage, mockNotification)
+	requestUsecase := usecase.NewRequestUseCase(mockRepo, mockStorage, mockNotification, nil)
 
 	return mockRepo, mockStorage, mockNotification, requestUsecase
 }

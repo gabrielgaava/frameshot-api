@@ -16,6 +16,7 @@ type (
 		DB   *Database
 		HTTP *HTTP
 		AWS  *Aws
+		Mail *Mail
 	}
 	// App contains all the environment variables for the application
 	App struct {
@@ -38,6 +39,11 @@ type (
 		URL            string
 		Port           string
 		AllowedOrigins string
+	}
+
+	Mail struct {
+		Key        string
+		TemplateId string
 	}
 
 	Aws struct {
@@ -91,10 +97,16 @@ func New() (*Container, error) {
 		VideoOutputQueueUrl: os.Getenv("AWS_VIDEO_OUTPUT_QUEUE_URL"),
 	}
 
+	mail := &Mail{
+		Key:        os.Getenv("SENDGRID_API_KEY"),
+		TemplateId: os.Getenv("SENDGRID_TEMPLATE_ID"),
+	}
+
 	return &Container{
 		app,
 		db,
 		http,
 		aws,
+		mail,
 	}, nil
 }

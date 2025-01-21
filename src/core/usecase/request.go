@@ -17,16 +17,13 @@ import (
 type RequestUseCase struct {
 	repository port.RequestRepository
 	storage    port.StoragePort
-	notication port.RequestNotificaitons
+	queue      port.QueuePort
+	mail       port.MailServicePort
 }
 
 // NewRequestUseCase creates a new user service instance
-func NewRequestUseCase(repo port.RequestRepository, storage port.StoragePort, notif port.RequestNotificaitons) *RequestUseCase {
-	return &RequestUseCase{
-		repo,
-		storage,
-		notif,
-	}
+func NewRequestUseCase(repo port.RequestRepository, storage port.StoragePort, queue port.QueuePort, notif port.MailServicePort) *RequestUseCase {
+	return &RequestUseCase{repo, storage, queue, notif}
 }
 
 func (usecase *RequestUseCase) Create(ctx context.Context, request *entity.Request, file *multipart.FileHeader) (*entity.Request, error) {
@@ -80,6 +77,10 @@ func (usecase *RequestUseCase) List(ctx context.Context, userId string) ([]entit
 		return nil, err
 	}
 
+	if requestList == nil {
+		return []entity.Request{}, nil
+	}
+
 	return requestList, nil
 }
 
@@ -117,7 +118,7 @@ func (usecase *RequestUseCase) HandleUploadNotification(ctx context.Context, msg
 			request, _ := usecase.repository.UpdateStatusByVideoKey(ctx, string(entity.InProgress), fileKey)
 
 			// Sent Message to SQS to Start Upload
-			usecase.notication.SendVideoProccessToQueue(request)
+			usecase.queue.SendVideoProccessToQueue(request)
 		}
 	}
 
@@ -127,12 +128,15 @@ func (usecase *RequestUseCase) HandleVideoOutputNotification(ctx context.Context
 
 	var notification queue.SnapVideoResponse
 	var bodyMessage string = msg.Body
+	var statusMessage string
 
 	err := json.Unmarshal([]byte(bodyMessage), &notification)
 	if err != nil {
 		fmt.Println("Error converting body message: ", err)
 		return
 	}
+
+	var isSuccess bool = notification.Status == "OK"
 
 	videoRequest, getError := usecase.Get(ctx, notification.Id)
 
@@ -143,21 +147,22 @@ func (usecase *RequestUseCase) HandleVideoOutputNotification(ctx context.Context
 
 	videoRequest.FinishedAt = time.Now()
 
-	if notification.Status == "OK" {
+	if isSuccess {
 		videoRequest.Status = entity.Completed
 		videoRequest.ZipOutputKey = notification.S3ZipFileKey
+		statusMessage = "sucesso"
 	} else {
 		videoRequest.Status = entity.Failed
+		statusMessage = "erro"
 	}
 
-	_, updateError := usecase.Update(ctx, videoRequest)
+	_, err = usecase.repository.UpdateRequest(ctx, videoRequest)
 
-	if updateError != nil {
-		fmt.Println("Error while updating register on database: ", err)
+	if err != nil {
 		return
 	}
 
-	// SEND EMAIL To User (Analyse how)
+	_ = usecase.mail.NotifyRequestStatus(videoRequest, statusMessage)
 }
 
 func validateFileRules(file *multipart.FileHeader) (bool, error) {
