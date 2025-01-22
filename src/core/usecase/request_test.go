@@ -27,6 +27,10 @@ type MockRequestNotifications struct {
 	mock.Mock
 }
 
+type MockMailService struct {
+	mock.Mock
+}
+
 func (m *MockRequestRepository) CreateRequest(ctx context.Context, request *entity.Request) (*entity.Request, error) {
 	args := m.Called(ctx, request)
 	return args.Get(0).(*entity.Request), args.Error(1)
@@ -67,11 +71,20 @@ func (m *MockRequestNotifications) SendVideoProccessToQueue(request *entity.Requ
 	return args.Error(0)
 }
 
+func (m *MockMailService) NotifyRequestStatus(request *entity.Request, status string) error {
+	args := m.Called(request, status)
+	return args.Error(0)
+}
+
 func setUp() (*MockRequestRepository, *MockStoragePort, *MockRequestNotifications, *usecase.RequestUseCase) {
 	mockRepo := new(MockRequestRepository)
 	mockStorage := new(MockStoragePort)
 	mockNotification := new(MockRequestNotifications)
-	requestUsecase := usecase.NewRequestUseCase(mockRepo, mockStorage, mockNotification, nil)
+	mockMailService := new(MockMailService)
+	requestUsecase := usecase.NewRequestUseCase(mockRepo, mockStorage, mockNotification, mockMailService)
+
+	mockMailService.On("NotifyRequestStatus", mock.Anything, mock.Anything).
+		Return(nil)
 
 	return mockRepo, mockStorage, mockNotification, requestUsecase
 }
