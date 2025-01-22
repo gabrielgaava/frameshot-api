@@ -39,7 +39,7 @@ type QueuePort interface {
 }
 
 type MailServicePort interface {
-	//NotifySuccess notify when a video request is converted with succes by the service
-	// Or with any error
+	// NotifyRequestStatus notify when a video request is converted with
+	//success by the service Or with any error
 	NotifyRequestStatus(request *entity.Request, status string) error
 }
