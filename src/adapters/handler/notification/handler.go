@@ -11,8 +11,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sns/types"
 )
 
+type SNSClient interface {
+	Publish(ctx context.Context, input *sns.PublishInput, opts ...func(*sns.Options)) (*sns.PublishOutput, error)
+}
+
 type SNSHandler struct {
-	Client  *sns.Client
+	Client  SNSClient
 	Configs *configuration.Aws
 	Ctx     context.Context
 }

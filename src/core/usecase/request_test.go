@@ -345,17 +345,21 @@ func TestHandleVideoOutputNotification_InvalidBody(t *testing.T) {
 	repo.AssertNotCalled(t, "UpdateRequest")
 }
 
-func TestHandleVideoOutputNotification_InvalidId(t *testing.T) {
+func TestHandleVideoOutputNotification_Success(t *testing.T) {
 	repo, _, _, use := setUp()
 	ctx := context.Background()
 
 	// Given
 	var id uint64 = 1
-	notificationBody := mocks.MockGetOutputVideoEventBody("OK") // ID = 1
+	notificationBody := mocks.MockGetOutputVideoEventBody("OK")
 	message := entity.EventMessage{Body: notificationBody}
+	mockUpdateRequest := mocks.MockGetRequest()
+	mockUpdateRequest.Status = entity.Completed
+	mockUpdateRequest.FinishedAt = time.Now()
 
 	// When
-	repo.On("GetById", ctx, id).Return((*entity.Request)(nil), errors.New("invalid id"))
+	repo.On("GetById", ctx, id).Return(&mockUpdateRequest, nil)
+	repo.On("UpdateRequest", ctx, mock.Anything).Return(&mockUpdateRequest, nil)
 	use.HandleVideoOutputNotification(ctx, message)
 
 	// Then
