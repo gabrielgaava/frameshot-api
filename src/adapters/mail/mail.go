@@ -38,15 +38,14 @@ func (service *MailService) NotifyRequestStatus(data *entity.Request, status str
 	request := sendgrid.GetRequest(service.Config.Key, "/v3/mail/send", "https://api.sendgrid.com")
 	request.Method = "POST"
 	request.Body = mailer.GetRequestBody(m)
-	response, err := sendgrid.API(request)
+	response, _ := sendgrid.API(request)
 
-	if err != nil {
-		fmt.Println(err)
-		return err
-	} else {
+	if response.StatusCode >= 200 && response.StatusCode <= 299 {
 		fmt.Println("E-mail enviado com sucesso!")
 		fmt.Println(response.StatusCode)
 		fmt.Println(response.Body)
 		return nil
 	}
+
+	return fmt.Errorf("error sending email: %s", response.Body)
 }
