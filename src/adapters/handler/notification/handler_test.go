@@ -5,6 +5,7 @@ import (
 	"errors"
 	"example/web-service-gin/src/adapters/handler/notification"
 	"example/web-service-gin/src/infra/configuration"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/sns"
@@ -20,6 +21,15 @@ type MockSNSClient struct {
 func (m *MockSNSClient) Publish(ctx context.Context, input *sns.PublishInput, opts ...func(*sns.Options)) (*sns.PublishOutput, error) {
 	args := m.Called(ctx, input)
 	return args.Get(0).(*sns.PublishOutput), args.Error(1)
+}
+
+func TestNewSNSHandler(t *testing.T) {
+	ctx := context.Background()
+	config := configuration.Aws{
+		Config: aws.Config{},
+	}
+	service := notification.NewSNSHandler(&config, ctx)
+	assert.NotNil(t, service)
 }
 
 func TestPublishMessage_Success(t *testing.T) {

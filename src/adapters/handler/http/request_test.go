@@ -163,6 +163,22 @@ func TestRequestHandler_ListUsers(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
+func TestRequestHandler_ListUsersNoContent(t *testing.T) {
+
+	handler, router, service := setUp(true)
+	router.GET("/requests", handler.ListUsers)
+
+	var requestList []entity.Request
+
+	service.On("List", mock.Anything, mock.Anything).Return(requestList, nil)
+	req, _ := http.NewRequest(http.MethodGet, "/requests", nil)
+	req.Header.Add("Authorization", "valid-token")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusNoContent, w.Code)
+}
+
 func TestRequestHandler_DatabaseError(t *testing.T) {
 
 	handler, router, service := setUp(true)
