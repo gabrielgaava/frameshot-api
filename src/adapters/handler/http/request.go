@@ -74,8 +74,14 @@ func (handler *RequestHandler) ListUsers(ctx *gin.Context) {
 	var requestList []requestResponse
 
 	requests, err := handler.service.List(ctx, user.Id)
+
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "request not saved. Try again later."})
+		return
+	}
+
+	if len(requests) == 0 {
+		ctx.JSON(http.StatusNoContent, "")
 		return
 	}
 

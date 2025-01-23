@@ -33,6 +33,13 @@ type RequestService interface {
 	HandleVideoOutputNotification(ctx context.Context, msg entity.EventMessage)
 }
 
-type RequestNotificaitons interface {
+type QueuePort interface {
+	//SendVideoProccessToQueue insert a new conversion request to the queue
 	SendVideoProccessToQueue(request *entity.Request) error
+}
+
+type MailServicePort interface {
+	// NotifyRequestStatus notify when a video request is converted with
+	//success by the service Or with any error
+	NotifyRequestStatus(request *entity.Request, status string) error
 }

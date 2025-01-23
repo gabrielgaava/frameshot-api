@@ -6,12 +6,13 @@ import (
 	"example/web-service-gin/src/core/entity"
 	"example/web-service-gin/src/core/usecase"
 	"example/web-service-gin/src/utils/mocks"
-	"github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"mime/multipart"
 	"testing"
 	"time"
+
+	"github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 type MockRequestRepository struct {
@@ -23,6 +24,10 @@ type MockStoragePort struct {
 }
 
 type MockRequestNotifications struct {
+	mock.Mock
+}
+
+type MockMailService struct {
 	mock.Mock
 }
 
@@ -66,11 +71,20 @@ func (m *MockRequestNotifications) SendVideoProccessToQueue(request *entity.Requ
 	return args.Error(0)
 }
 
+func (m *MockMailService) NotifyRequestStatus(request *entity.Request, status string) error {
+	args := m.Called(request, status)
+	return args.Error(0)
+}
+
 func setUp() (*MockRequestRepository, *MockStoragePort, *MockRequestNotifications, *usecase.RequestUseCase) {
 	mockRepo := new(MockRequestRepository)
 	mockStorage := new(MockStoragePort)
 	mockNotification := new(MockRequestNotifications)
-	requestUsecase := usecase.NewRequestUseCase(mockRepo, mockStorage, mockNotification)
+	mockMailService := new(MockMailService)
+	requestUsecase := usecase.NewRequestUseCase(mockRepo, mockStorage, mockNotification, mockMailService)
+
+	mockMailService.On("NotifyRequestStatus", mock.Anything, mock.Anything).
+		Return(nil)
 
 	return mockRepo, mockStorage, mockNotification, requestUsecase
 }
@@ -331,17 +345,21 @@ func TestHandleVideoOutputNotification_InvalidBody(t *testing.T) {
 	repo.AssertNotCalled(t, "UpdateRequest")
 }
 
-func TestHandleVideoOutputNotification_InvalidId(t *testing.T) {
+func TestHandleVideoOutputNotification_Success(t *testing.T) {
 	repo, _, _, use := setUp()
 	ctx := context.Background()
 
 	// Given
 	var id uint64 = 1
-	notificationBody := mocks.MockGetOutputVideoEventBody("OK") // ID = 1
+	notificationBody := mocks.MockGetOutputVideoEventBody("OK")
 	message := entity.EventMessage{Body: notificationBody}
+	mockUpdateRequest := mocks.MockGetRequest()
+	mockUpdateRequest.Status = entity.Completed
+	mockUpdateRequest.FinishedAt = time.Now()
 
 	// When
-	repo.On("GetById", ctx, id).Return((*entity.Request)(nil), errors.New("invalid id"))
+	repo.On("GetById", ctx, id).Return(&mockUpdateRequest, nil)
+	repo.On("UpdateRequest", ctx, mock.Anything).Return(&mockUpdateRequest, nil)
 	use.HandleVideoOutputNotification(ctx, message)
 
 	// Then

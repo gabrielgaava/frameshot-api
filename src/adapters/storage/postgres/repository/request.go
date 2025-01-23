@@ -73,6 +73,7 @@ func (repository *PGRequestRepository) GetAllUserRequests(ctx context.Context, u
 
 	query := repository.db.QueryBuilder.Select("*").
 		From("requests").
+		Where(sq.Eq{"user_id": userId}).
 		OrderBy("created_at")
 
 	// Create SQL Statement
