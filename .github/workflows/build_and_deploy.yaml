@@ -50,7 +50,7 @@ jobs:
                 "cpu": 256,
                 "essential": true,
                 "environment": [
-                  { "name": "APP_ENV", "value": "${{ secrets.APP_NAME }}" },
+                  { "name": "APP_ENV", "value": "production" },
                   { "name": "HTTP_URL", "value": "127.0.0.1" },
                   { "name": "HTTP_PORT", "value": "8080" },
                   { "name": "HTTP_ALLOWED_ORIGINS", "value": "*" },
