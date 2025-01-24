@@ -26,7 +26,7 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t frameshot-api:${{ github.sha }} .
+          docker build -t frameshot-api:latest .
 
       - name: Push Docker image to Amazon ECR
         id: build-image
@@ -82,12 +82,12 @@ jobs:
             --family frameshot-api-task \
             --container-definitions file://env.json | jq -r '.taskDefinition.taskDefinitionArn')
 
-          echo "Task Definition ARN: $ecs_update_task_definition"
+          echo "ecs_update_task_definition=$ecs_update_task_definition" >> "$GITHUB_ENV"
 
       - name: Update ECS Service
         run: |
           aws ecs update-service \
             --cluster frameshot-cluster \
             --service frameshot-api \
-            --task-definition $ecs_update_task_definition \
+            --task-definition ${{ env.ecs_update_task_definition }} \
             --desired-count 1
