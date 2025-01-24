@@ -1,0 +1,91 @@
+name: Deploy to ECS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up AWS CLI
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build Docker image
+        run: |
+          docker build -t frameshot-api:${{ github.sha }} .
+
+      - name: Push Docker image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: frameshot-api
+          IMAGE_TAG: latest
+        run: |
+          echo ECR_URL=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG >> "$GITHUB_OUTPUT"
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Creating Env File
+        run: |
+          cat <<EOF > env.json
+          [
+            {
+                "name": "frameshot-api",
+                "image": "${{ steps.build-image.ECR_URL }}",
+                "memory": 512,
+                "cpu": 256,
+                "essential": true,
+                "environment": [
+                  { "name": "APP_ENV", "value": "${{ secrets.APP_NAME }}" },
+                  { "name": "HTTP_URL", "value": "127.0.0.1" },
+                  { "name": "HTTP_PORT", "value": "8080" },
+                  { "name": "HTTP_ALLOWED_ORIGINS", "value": "*" },
+                  { "name": "DB_CONNECTION", "value": "${{ secrets.DB_CONNECTION }}" },
+                  { "name": "DB_HOST", "value": "${{ secrets.DB_HOST }}" },
+                  { "name": "DB_PORT", "value": "${{ secrets.DB_PORT }}" },
+                  { "name": "DB_NAME", "value": "${{ secrets.DB_NAME }}" },
+                  { "name": "DB_USER", "value": "${{ secrets.DB_USER }}" },
+                  { "name": "DB_PASSWORD", "value": "${{ secrets.DB_PASSWORD }}" },
+                  { "name": "AWS_REGION", "value": "${{ secrets.AWS_REGION }}" },
+                  { "name": "AWS_ACCESS_KEY_ID", "value": "${{ secrets.AWS_ACCESS_KEY_ID }}" },
+                  { "name": "AWS_SECRET_ACCESS_KEY", "value": "${{ secrets.AWS_SECRET_ACCESS_KEY }}" },
+                  { "name": "AWS_SESSION_TOKEN", "value": "${{ secrets.AWS_SESSION_TOKEN }}" },
+                  { "name": "AWS_BUCKET_NAME", "value": "${{ secrets.AWS_BUCKET_NAME }}" },
+                  { "name": "AWS_COGNITO_JWKS_URL", "value": "${{ secrets.AWS_COGNITO_JWKS_URL }}" },
+                  { "name": "AWS_S3_QUEUE_URL", "value": "${{ secrets.AWS_S3_QUEUE_URL }}" },
+                  { "name": "AWS_VIDEO_INPUT_QUEUE_URL", "value": "${{ secrets.AWS_VIDEO_INPUT_QUEUE_URL }}" },
+                  { "name": "AWS_VIDEO_OUTPUT_QUEUE_URL", "value": "${{ secrets.AWS_VIDEO_OUTPUT_QUEUE_URL }}" },
+                  { "name": "SENDGRID_API_KEY", "value": "${{ secrets.SENDGRID_API_KEY }}" },
+                  { "name": "SENDGRID_TEMPLATE_ID", "value": "${{ secrets.SENDGRID_TEMPLATE_ID }}" }
+                ]
+            }
+          ]
+          EOF
+
+      - name: Update ECS Service
+        run: |
+          ecs_update_task_definition=$(aws ecs register-task-definition \
+            --family frameshot-api-task \
+            --container-definitions file://env.json
+
+          # Atualiza o serviço do ECS para usar a nova versão
+          aws ecs update-service \
+            --cluster frameshot-cluster \
+            --service frameshot-api \
+            --task-definition $ecs_update_task_definition \
+            --desired-count 1
+
