@@ -44,48 +44,50 @@ jobs:
           cat <<EOF > env.json
           [
             {
-                "name": "frameshot-api",
-                "image": "${{ steps.build-image.ECR_URL }}",
-                "memory": 512,
-                "cpu": 256,
-                "essential": true,
-                "environment": [
-                  { "name": "APP_ENV", "value": "production" },
-                  { "name": "HTTP_URL", "value": "127.0.0.1" },
-                  { "name": "HTTP_PORT", "value": "8080" },
-                  { "name": "HTTP_ALLOWED_ORIGINS", "value": "*" },
-                  { "name": "DB_CONNECTION", "value": "${{ secrets.DB_CONNECTION }}" },
-                  { "name": "DB_HOST", "value": "${{ secrets.DB_HOST }}" },
-                  { "name": "DB_PORT", "value": "${{ secrets.DB_PORT }}" },
-                  { "name": "DB_NAME", "value": "${{ secrets.DB_NAME }}" },
-                  { "name": "DB_USER", "value": "${{ secrets.DB_USER }}" },
-                  { "name": "DB_PASSWORD", "value": "${{ secrets.DB_PASSWORD }}" },
-                  { "name": "AWS_REGION", "value": "${{ secrets.AWS_REGION }}" },
-                  { "name": "AWS_ACCESS_KEY_ID", "value": "${{ secrets.AWS_ACCESS_KEY_ID }}" },
-                  { "name": "AWS_SECRET_ACCESS_KEY", "value": "${{ secrets.AWS_SECRET_ACCESS_KEY }}" },
-                  { "name": "AWS_SESSION_TOKEN", "value": "${{ secrets.AWS_SESSION_TOKEN }}" },
-                  { "name": "AWS_BUCKET_NAME", "value": "${{ secrets.AWS_BUCKET_NAME }}" },
-                  { "name": "AWS_COGNITO_JWKS_URL", "value": "${{ secrets.AWS_COGNITO_JWKS_URL }}" },
-                  { "name": "AWS_S3_QUEUE_URL", "value": "${{ secrets.AWS_S3_QUEUE_URL }}" },
-                  { "name": "AWS_VIDEO_INPUT_QUEUE_URL", "value": "${{ secrets.AWS_VIDEO_INPUT_QUEUE_URL }}" },
-                  { "name": "AWS_VIDEO_OUTPUT_QUEUE_URL", "value": "${{ secrets.AWS_VIDEO_OUTPUT_QUEUE_URL }}" },
-                  { "name": "SENDGRID_API_KEY", "value": "${{ secrets.SENDGRID_API_KEY }}" },
-                  { "name": "SENDGRID_TEMPLATE_ID", "value": "${{ secrets.SENDGRID_TEMPLATE_ID }}" }
-                ]
+              "name": "frameshot-api",
+              "image": "${{ steps.build-image.outputs.ECR_URL }}",
+              "memory": 512,
+              "cpu": 256,
+              "essential": true,
+              "environment": [
+                { "name": "APP_ENV", "value": "production" },
+                { "name": "HTTP_URL", "value": "127.0.0.1" },
+                { "name": "HTTP_PORT", "value": "8080" },
+                { "name": "HTTP_ALLOWED_ORIGINS", "value": "*" },
+                { "name": "DB_CONNECTION", "value": "${{ secrets.DB_CONNECTION }}" },
+                { "name": "DB_HOST", "value": "${{ secrets.DB_HOST }}" },
+                { "name": "DB_PORT", "value": "${{ secrets.DB_PORT }}" },
+                { "name": "DB_NAME", "value": "${{ secrets.DB_NAME }}" },
+                { "name": "DB_USER", "value": "${{ secrets.DB_USER }}" },
+                { "name": "DB_PASSWORD", "value": "${{ secrets.DB_PASSWORD }}" },
+                { "name": "AWS_REGION", "value": "${{ secrets.AWS_REGION }}" },
+                { "name": "AWS_ACCESS_KEY_ID", "value": "${{ secrets.AWS_ACCESS_KEY_ID }}" },
+                { "name": "AWS_SECRET_ACCESS_KEY", "value": "${{ secrets.AWS_SECRET_ACCESS_KEY }}" },
+                { "name": "AWS_SESSION_TOKEN", "value": "${{ secrets.AWS_SESSION_TOKEN }}" },
+                { "name": "AWS_BUCKET_NAME", "value": "${{ secrets.AWS_BUCKET_NAME }}" },
+                { "name": "AWS_COGNITO_JWKS_URL", "value": "${{ secrets.AWS_COGNITO_JWKS_URL }}" },
+                { "name": "AWS_S3_QUEUE_URL", "value": "${{ secrets.AWS_S3_QUEUE_URL }}" },
+                { "name": "AWS_VIDEO_INPUT_QUEUE_URL", "value": "${{ secrets.AWS_VIDEO_INPUT_QUEUE_URL }}" },
+                { "name": "AWS_VIDEO_OUTPUT_QUEUE_URL", "value": "${{ secrets.AWS_VIDEO_OUTPUT_QUEUE_URL }}" },
+                { "name": "SENDGRID_API_KEY", "value": "${{ secrets.SENDGRID_API_KEY }}" },
+                { "name": "SENDGRID_TEMPLATE_ID", "value": "${{ secrets.SENDGRID_TEMPLATE_ID }}" }
+              ]
             }
           ]
           EOF
 
-      - name: Update ECS Service
+      - name: Register ECS Task Definition
         run: |
           ecs_update_task_definition=$(aws ecs register-task-definition \
             --family frameshot-api-task \
-            --container-definitions file://env.json
+            --container-definitions file://env.json | jq -r '.taskDefinition.taskDefinitionArn')
 
-          # Atualiza o serviço do ECS para usar a nova versão
+          echo "Task Definition ARN: $ecs_update_task_definition"
+
+      - name: Update ECS Service
+        run: |
           aws ecs update-service \
             --cluster frameshot-cluster \
             --service frameshot-api \
             --task-definition $ecs_update_task_definition \
             --desired-count 1
-
