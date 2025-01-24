@@ -130,6 +130,8 @@ func (usecase *RequestUseCase) HandleVideoOutputNotification(ctx context.Context
 	var bodyMessage string = msg.Body
 	var statusMessage string
 
+	fmt.Println("Message from Queue: ", msg.Body)
+
 	err := json.Unmarshal([]byte(bodyMessage), &notification)
 	if err != nil {
 		fmt.Println("Error converting body message: ", err)
@@ -146,10 +148,11 @@ func (usecase *RequestUseCase) HandleVideoOutputNotification(ctx context.Context
 	}
 
 	videoRequest.FinishedAt = time.Now()
+	videoUrl := usecase.storage.GetFileUrl(notification.S3ZipFileKey)
 
 	if isSuccess {
 		videoRequest.Status = entity.Completed
-		videoRequest.ZipOutputKey = notification.S3ZipFileKey
+		videoRequest.ZipOutputKey = videoUrl
 		statusMessage = "sucesso"
 	} else {
 		videoRequest.Status = entity.Failed
