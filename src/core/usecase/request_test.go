@@ -66,6 +66,11 @@ func (m *MockStoragePort) DownloadFile(fileKey string) (*file.File, error) {
 	return args.Get(0).(*file.File), args.Error(1)
 }
 
+func (m *MockStoragePort) GetFileUrl(fileKey string) string {
+	args := m.Called(fileKey)
+	return args.Get(0).(string)
+}
+
 func (m *MockRequestNotifications) SendVideoProccessToQueue(request *entity.Request) error {
 	args := m.Called(request)
 	return args.Error(0)
@@ -83,6 +88,7 @@ func setUp() (*MockRequestRepository, *MockStoragePort, *MockRequestNotification
 	mockMailService := new(MockMailService)
 	requestUsecase := usecase.NewRequestUseCase(mockRepo, mockStorage, mockNotification, mockMailService)
 
+	mockStorage.On("GetFileUrl", mock.Anything).Return("url-to-s3-file/zip_output/file.zip")
 	mockMailService.On("NotifyRequestStatus", mock.Anything, mock.Anything).
 		Return(nil)
 
@@ -346,7 +352,7 @@ func TestHandleVideoOutputNotification_InvalidBody(t *testing.T) {
 }
 
 func TestHandleVideoOutputNotification_Success(t *testing.T) {
-	repo, _, _, use := setUp()
+	repo, storage, _, use := setUp()
 	ctx := context.Background()
 
 	// Given
@@ -360,6 +366,7 @@ func TestHandleVideoOutputNotification_Success(t *testing.T) {
 	// When
 	repo.On("GetById", ctx, id).Return(&mockUpdateRequest, nil)
 	repo.On("UpdateRequest", ctx, mock.Anything).Return(&mockUpdateRequest, nil)
+	storage.On("GetFileUrl", mock.Anything).Return("url-to-s3-file/zip_output/file.zip")
 	use.HandleVideoOutputNotification(ctx, message)
 
 	// Then

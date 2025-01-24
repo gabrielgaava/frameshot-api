@@ -8,4 +8,5 @@ import (
 type StoragePort interface {
 	UploadFile(file *multipart.FileHeader, fileKey string) (string, error)
 	DownloadFile(fileKey string) (*file.File, error)
+	GetFileUrl(fileKey string) string
 }

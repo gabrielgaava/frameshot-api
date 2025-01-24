@@ -15,6 +15,6 @@ type SnapVideoResponse struct {
 	IdUser       string    `json:"id_user" example:"1231231231"`
 	Status       string    `json:"status" example:"SUCCESS"`
 	S3ZipFileKey string    `json:"s3_zip_file_key" example:"https://google.com"`
-	CreationDate time.Time `json:"creation_date" example:"1970-01-01T00:00:00Z"`
-	FinishedDate time.Time `json:"finished_date" example:"1970-01-01T00:00:00Z"`
+	CreationDate time.Time `json:"creation_date" example:"2025-01-23T20:38:08.792075"`
+	FinishedDate time.Time `json:"finished_date" example:"2025-01-23T20:38:08.792075"`
 }
