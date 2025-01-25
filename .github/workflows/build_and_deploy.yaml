@@ -99,12 +99,13 @@ jobs:
           EOF
 
       - name: Register ECS Task Definition
+        id: register-task
         run: |
           ecs_update_task_definition=$(aws ecs register-task-definition \
-            --family frameshot-api-task \
-            --container-definitions file://env.json | jq -r '.taskDefinition.taskDefinitionArn')
-
-          echo "ecs_update_task_definition=$ecs_update_task_definition" >> "$GITHUB_ENV"
+            --cli-input-json file://env.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          echo "ecs_update_task_definition=$ecs_update_task_definition" >> $GITHUB_ENV
 
       - name: Update ECS Service
         run: |
