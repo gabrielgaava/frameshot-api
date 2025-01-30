@@ -165,6 +165,7 @@ func (usecase *RequestUseCase) HandleVideoOutputNotification(ctx context.Context
 		return
 	}
 
+	fmt.Println("Sucesso: ", statusMessage)
 	_ = usecase.mail.NotifyRequestStatus(videoRequest, statusMessage)
 }
 
