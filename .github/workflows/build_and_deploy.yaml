@@ -127,14 +127,34 @@ jobs:
           CLUSTER_NAME="frameshot-cluster"
           TASK_DEFINITION_ARN="${{ env.ecs_update_task_definition }}"
           if [ "${{ env.service_exists }}" == "false" ]; then
-            echo "Service does not exist. Creating..."
+            echo "Service does not exist. Creating load balancer"
+          
+            # Criar o Target Group
+            TARGET_GROUP_ARN=$(aws elbv2 create-target-group \
+              --name frameshot-api-target \
+              --protocol HTTP \
+              --port 8080 \
+              --vpc-id ${{ secrets.VPC_ID }} \
+              --target-type ip \
+              --query 'TargetGroups[0].TargetGroupArn' \
+              --output text)
+          
+            # Verificar se o ARN do Target Group foi criado corretamente
+            if [ "$TARGET_GROUP_ARN" == "None" ]; then
+              echo "Error creating target group"
+              exit 1
+            fi
+          
+            echo "Creating service"
+            # Criar o serviço ECS
             aws ecs create-service \
               --cluster $CLUSTER_NAME \
               --service-name $SERVICE_NAME \
               --task-definition $TASK_DEFINITION_ARN \
               --desired-count 1 \
               --launch-type FARGATE \
-              --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.SUBNETS }}],securityGroups=[${{ secrets.SECURITY_GROUP }}],assignPublicIp=ENABLED}"
+              --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.SUBNETS }}],securityGroups=[${{ secrets.SECURITY_GROUP }}],assignPublicIp=ENABLED}" \
+              --load-balancers "targetGroupArn=$TARGET_GROUP_ARN,containerName=frameshot-api,containerPort=8080"
           else
             echo "Service exists. Updating..."
             aws ecs update-service \
