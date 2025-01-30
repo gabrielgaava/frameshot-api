@@ -99,7 +99,8 @@ jobs:
             -var="ecr_image_url=${{ needs.build_and_push.outputs.ECR_URL }}" \
             -var="ecs_task_execution_role_arn=${{ secrets.ROLE }}" \
             -var="vpc_id=${{ secrets.VPC_ID }}" \
-            -var="subnets=${{ secrets.SUBNETS }}" \
+            -var="public_subnets=${{ secrets.PUBLIC_SUBNETS }}" \
+            -var="private_subnets=${{ secrets.PRIVATE_SUBNETS }}" \
             -var="security_groups=${{ secrets.SECURITY_GROUP }}" \
             -var="aws_bucket_name=${{ secrets.AWS_BUCKET_NAME }}" \
             -var="sendgrid_api_key=${{ secrets.SENDGRID_API_KEY }}" \

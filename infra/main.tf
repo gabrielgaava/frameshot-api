@@ -71,7 +71,7 @@ resource "aws_ecs_service" "frameshot_service" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = var.subnets
+    subnets         = var.private_subnets
     security_groups = var.security_groups
     assign_public_ip = true
   }
@@ -109,7 +109,7 @@ resource "aws_lb" "frameshot_lb" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = var.security_groups
-  subnets            = var.subnets
+  subnets            = var.public_subnets
 }
 
 resource "aws_lb_listener" "frameshot_listener" {
