@@ -25,21 +25,10 @@ type CreateRequestBody struct {
 	VideoUrl string `json:"video_url" binding:"required" example:"https://google.com"`
 }
 
-// Register godoc
-//
-//	@Summary		Register a new video conversion request
-//	@Description	create a new video conversion request with default data
-//	@Tags			Requests
-//	@Accept			json
-//	@Produce		json
-//	@Param			registerRequest	body		registerRequest	true	"Register request"
-//	@Success		200				{object}	userResponse	"User created"
-//	@Failure		400				{object}	errorResponse	"Validation error"
-//	@Failure		401				{object}	errorResponse	"Unauthorized error"
-//	@Failure		404				{object}	errorResponse	"Data not found error"
-//	@Failure		409				{object}	errorResponse	"Data conflict error"
-//	@Failure		500				{object}	errorResponse	"Internal server error"
-//	@Router			/users [post]
+func (r *RequestHandler) HealthCheck(c *gin.Context) {
+	c.JSON(200, gin.H{"status": "ok", "message": "service is running"})
+}
+
 func (handler *RequestHandler) Register(ctx *gin.Context) {
 
 	user := getAuthUser(ctx)
