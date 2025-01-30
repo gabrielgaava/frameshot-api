@@ -7,6 +7,7 @@ on:
 
 jobs:
   build_and_deploy:
+    name: Build and Deploy
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -106,11 +107,39 @@ jobs:
             --query 'taskDefinition.taskDefinitionArn' \
             --output text)
           echo "ecs_update_task_definition=$ecs_update_task_definition" >> $GITHUB_ENV
-
-      - name: Update ECS Service
+          
+      - name: Check if ECS Service exists
+        id: check-service
         run: |
-          aws ecs update-service \
-            --cluster frameshot-cluster \
-            --service frameshot-api \
-            --task-definition ${{ env.ecs_update_task_definition }} \
-            --desired-count 1
+          SERVICE_NAME="frameshot-api"
+          CLUSTER_NAME="frameshot-cluster"
+          EXISTING_SERVICE=$(aws ecs describe-services --cluster $CLUSTER_NAME --services $SERVICE_NAME --query 'services[?status==`ACTIVE`].serviceName' --output text || true)
+      
+          if [ -z "$EXISTING_SERVICE" ]; then
+            echo "service_exists=false" >> $GITHUB_ENV
+          else
+            echo "service_exists=true" >> $GITHUB_ENV
+          fi
+
+      - name: Create or Update ECS Service
+        run: |
+          SERVICE_NAME="frameshot-api"
+          CLUSTER_NAME="frameshot-cluster"
+          TASK_DEFINITION_ARN="${{ env.ecs_update_task_definition }}"
+          if [ "${{ env.service_exists }}" == "false" ]; then
+            echo "Service does not exist. Creating..."
+            aws ecs create-service \
+              --cluster $CLUSTER_NAME \
+              --service-name $SERVICE_NAME \
+              --task-definition $TASK_DEFINITION_ARN \
+              --desired-count 1 \
+              --launch-type FARGATE \
+              --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.SUBNETS }}],securityGroups=[${{ secrets.SECURITY_GROUP }}],assignPublicIp=ENABLED}"
+          else
+            echo "Service exists. Updating..."
+            aws ecs update-service \
+              --cluster $CLUSTER_NAME \
+              --service $SERVICE_NAME \
+              --task-definition $TASK_DEFINITION_ARN \
+              --desired-count 1
+          fi
