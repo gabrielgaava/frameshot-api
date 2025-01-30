@@ -6,8 +6,8 @@ on:
       - main
 
 jobs:
-  build_and_deploy:
-    name: Build and Deploy
+  build_and_push:
+    name: Build and Push Image
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -37,129 +37,65 @@ jobs:
           IMAGE_TAG: latest
         run: |
           echo ECR_URL=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG >> "$GITHUB_OUTPUT"
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker tag frameshot-api:latest $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-      - name: Creating Env File
-        run: |
-          cat <<EOF > env.json
-            {
-              "family": "frameshot-api-task",
-              "requiresCompatibilities": ["FARGATE"],
-              "networkMode": "awsvpc",
-              "cpu": "256",
-              "memory": "512",
-              "containerDefinitions": [
-                {
-                  "name": "frameshot-api",
-                  "image": "${{ steps.build-image.outputs.ECR_URL }}",
-                  "essential": true,
-                  "environment": [
-                    { "name": "APP_ENV", "value": "production" },
-                    { "name": "HTTP_URL", "value": "127.0.0.1" },
-                    { "name": "HTTP_PORT", "value": "8080" },
-                    { "name": "HTTP_ALLOWED_ORIGINS", "value": "*" },
-                    { "name": "DB_CONNECTION", "value": "${{ secrets.DB_CONNECTION }}" },
-                    { "name": "DB_HOST", "value": "${{ secrets.DB_HOST }}" },
-                    { "name": "DB_PORT", "value": "${{ secrets.DB_PORT }}" },
-                    { "name": "DB_NAME", "value": "${{ secrets.DB_NAME }}" },
-                    { "name": "DB_USER", "value": "${{ secrets.DB_USER }}" },
-                    { "name": "DB_PASSWORD", "value": "${{ secrets.DB_PASSWORD }}" },
-                    { "name": "AWS_REGION", "value": "${{ secrets.AWS_REGION }}" },
-                    { "name": "AWS_ACCESS_KEY_ID", "value": "${{ secrets.AWS_ACCESS_KEY_ID }}" },
-                    { "name": "AWS_SECRET_ACCESS_KEY", "value": "${{ secrets.AWS_SECRET_ACCESS_KEY }}" },
-                    { "name": "AWS_SESSION_TOKEN", "value": "${{ secrets.AWS_SESSION_TOKEN }}" },
-                    { "name": "AWS_BUCKET_NAME", "value": "${{ secrets.AWS_BUCKET_NAME }}" },
-                    { "name": "AWS_COGNITO_JWKS_URL", "value": "${{ secrets.AWS_COGNITO_JWKS_URL }}" },
-                    { "name": "AWS_S3_QUEUE_URL", "value": "${{ secrets.AWS_S3_QUEUE_URL }}" },
-                    { "name": "AWS_VIDEO_INPUT_QUEUE_URL", "value": "${{ secrets.AWS_VIDEO_INPUT_QUEUE_URL }}" },
-                    { "name": "AWS_VIDEO_OUTPUT_QUEUE_URL", "value": "${{ secrets.AWS_VIDEO_OUTPUT_QUEUE_URL }}" },
-                    { "name": "SENDGRID_API_KEY", "value": "${{ secrets.SENDGRID_API_KEY }}" },
-                    { "name": "SENDGRID_TEMPLATE_ID", "value": "${{ secrets.SENDGRID_TEMPLATE_ID }}" }
-                  ],
-                  "portMappings": [
-                    {
-                      "containerPort": 8080,
-                      "hostPort": 8080,
-                      "protocol": "tcp"
-                    }
-                  ],
-                  "logConfiguration": {
-                    "logDriver": "awslogs",
-                    "options": {
-                      "awslogs-group": "/ecs/frameshot-api",
-                      "awslogs-region": "${{ secrets.AWS_REGION }}",
-                      "awslogs-stream-prefix": "ecs"
-                    }
-                  }
-                }
-              ],
-              "executionRoleArn": "${{ secrets.ROLE }}",
-              "taskRoleArn": "${{ secrets.ROLE }}"
-            }
-          EOF
+  deploy_infra:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    needs: build_and_push
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-      - name: Register ECS Task Definition
-        id: register-task
-        run: |
-          ecs_update_task_definition=$(aws ecs register-task-definition \
-            --cli-input-json file://env.json \
-            --query 'taskDefinition.taskDefinitionArn' \
-            --output text)
-          echo "ecs_update_task_definition=$ecs_update_task_definition" >> $GITHUB_ENV
-          
+      - name: Set up AWS CLI
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
       - name: Check if ECS Service exists
         id: check-service
         run: |
           SERVICE_NAME="frameshot-api"
           CLUSTER_NAME="frameshot-cluster"
           EXISTING_SERVICE=$(aws ecs describe-services --cluster $CLUSTER_NAME --services $SERVICE_NAME --query 'services[?status==`ACTIVE`].serviceName' --output text || true)
-      
+          
           if [ -z "$EXISTING_SERVICE" ]; then
             echo "service_exists=false" >> $GITHUB_ENV
           else
             echo "service_exists=true" >> $GITHUB_ENV
           fi
 
-      - name: Create or Update ECS Service
+      - name: Set up Terraform
+        if: env.service_exists == 'false'
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: "1.5.0"
+
+      - name: Terraform Init
+        if: env.service_exists == 'false'
+        run: |
+          cd infra/
+          terraform init
+
+      - name: Terraform Apply
+        if: env.service_exists == 'false'
+        run: |
+          cd infra/
+          terraform apply -auto-approve -var="ecr_image_url=${{ needs.build_and_push.outputs.ECR_URL }}"
+
+      - name: Update ECS Service
+        if: env.service_exists == 'true'
         run: |
           SERVICE_NAME="frameshot-api"
           CLUSTER_NAME="frameshot-cluster"
-          TASK_DEFINITION_ARN="${{ env.ecs_update_task_definition }}"
-          if [ "${{ env.service_exists }}" == "false" ]; then
-            echo "Service does not exist. Creating load balancer"
+          TASK_DEFINITION_ARN=$(aws ecs describe-task-definition --task-definition frameshot-api-task --query 'taskDefinition.taskDefinitionArn' --output text)
           
-            # Criar o Target Group
-            TARGET_GROUP_ARN=$(aws elbv2 create-target-group \
-              --name frameshot-api-target \
-              --protocol HTTP \
-              --port 8080 \
-              --vpc-id ${{ secrets.VPC_ID }} \
-              --target-type ip \
-              --query 'TargetGroups[0].TargetGroupArn' \
-              --output text)
-          
-            # Verificar se o ARN do Target Group foi criado corretamente
-            if [ "$TARGET_GROUP_ARN" == "None" ]; then
-              echo "Error creating target group"
-              exit 1
-            fi
-          
-            echo "Creating service"
-            # Criar o serviço ECS
-            aws ecs create-service \
-              --cluster $CLUSTER_NAME \
-              --service-name $SERVICE_NAME \
-              --task-definition $TASK_DEFINITION_ARN \
-              --desired-count 1 \
-              --launch-type FARGATE \
-              --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.SUBNETS }}],securityGroups=[${{ secrets.SECURITY_GROUP }}],assignPublicIp=ENABLED}" \
-              --load-balancers "targetGroupArn=$TARGET_GROUP_ARN,containerName=frameshot-api,containerPort=8080"
-          else
-            echo "Service exists. Updating..."
-            aws ecs update-service \
-              --cluster $CLUSTER_NAME \
-              --service $SERVICE_NAME \
-              --task-definition $TASK_DEFINITION_ARN \
-              --desired-count 1
-          fi
+          aws ecs update-service \
+            --cluster $CLUSTER_NAME \
+            --service $SERVICE_NAME \
+            --task-definition $TASK_DEFINITION_ARN \
+            --desired-count 1
