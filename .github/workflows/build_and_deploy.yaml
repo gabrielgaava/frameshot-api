@@ -9,6 +9,8 @@ jobs:
   build_and_push:
     name: Build and Push Image
     runs-on: ubuntu-latest
+    outputs:
+      ecr_url: ${{ steps.build-image.outputs.ECR_URL }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -97,7 +99,7 @@ jobs:
             -var="db_password=${{ secrets.DB_PASSWORD }}" \
             -var="db_name=${{ secrets.DB_NAME }}" \
             -var="cognito_jwks_url=${{ secrets.AWS_COGNITO_JWKS_URL }}" \
-            -var="ecr_image_url=${{ needs.build_and_push.outputs.ECR_URL }}" \
+            -var="ecr_image_url=${{ needs.build_and_push.outputs.ecr_url  }}" \
             -var="ecs_task_execution_role_arn=${{ secrets.ROLE }}" \
             -var="vpc_id=${{ secrets.VPC_ID }}" \
             -var='public_subnets=${{ secrets.PUBLIC_SUBNETS }}' \
