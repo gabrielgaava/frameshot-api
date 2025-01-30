@@ -81,34 +81,39 @@ jobs:
           cd infra/
           terraform init
 
+      - name: Set Terraform Variables
+        if: env.service_exists == 'false'
+        env:
+          TF_VAR_aws_access_key: ${{ secrets.AWS_ACCESS_KEY }}
+          TF_VAR_aws_secret_key: ${{ secrets.AWS_SECRET_KEY }}
+          TF_VAR_aws_session_token: ${{ secrets.AWS_SESSION_TOKEN }}
+          TF_VAR_aws_region: ${{ secrets.AWS_REGION }}
+          TF_VAR_db_connection: ${{ secrets.DB_CONNECTION }}
+          TF_VAR_db_host: ${{ secrets.DB_HOST }}
+          TF_VAR_db_master_username: ${{ secrets.DB_USER }}
+          TF_VAR_db_master_password: ${{ secrets.DB_PASSWORD }}
+          TF_VAR_db_name: ${{ secrets.DB_NAME }}
+          TF_VAR_cognito_jwks_url: ${{ secrets.AWS_COGNITO_JWKS_URL }}
+          TF_VAR_ecr_image_url: ${{ needs.build_and_push.outputs.ECR_URL }}
+          TF_VAR_ecs_task_execution_role_arn: ${{ secrets.ROLE }}
+          TF_VAR_vpc_id: ${{ secrets.VPC_ID }}
+          TF_VAR_public_subnets: ${{ secrets.PUBLIC_SUBNETS }}
+          TF_VAR_private_subnets: ${{ secrets.PRIVATE_SUBNETS }}
+          TF_VAR_security_groups: ${{ secrets.SECURITY_GROUP }}
+          TF_VAR_aws_bucket_name: ${{ secrets.AWS_BUCKET_NAME }}
+          TF_VAR_sendgrid_api_key: ${{ secrets.SENDGRID_API_KEY }}
+          TF_VAR_sendgrid_template_id: ${{ secrets.SENDGRID_TEMPLATE_ID }}
+          TF_VAR_s3_queue_url: ${{ secrets.AWS_S3_QUEUE_URL }}
+          TF_VAR_video_input_queue_url: ${{ secrets.AWS_VIDEO_INPUT_QUEUE_URL }}
+          TF_VAR_video_output_queue_url: ${{ secrets.AWS_VIDEO_OUTPUT_QUEUE_URL }}
+        run: |
+          echo "Variables set as environment variables."
+
       - name: Terraform Apply
         if: env.service_exists == 'false'
         run: |
           cd infra/
-          terraform apply -auto-approve \
-            -var="aws_access_key=${{ secrets.AWS_ACCESS_KEY }}" \
-            -var="aws_secret_key=${{ secrets.AWS_SECRET_KEY }}" \
-            -var="aws_session_token=${{ secrets.AWS_SESSION_TOKEN }}" \
-            -var="aws_region=${{ secrets.AWS_REGION }}" \
-            -var="db_connection=${{ secrets.DB_CONNECTION }}" \
-            -var="db_host=${{ secrets.DB_HOST }}" \
-            -var="db_master_username=${{ secrets.DB_USER }}" \
-            -var="db_master_password=${{ secrets.DB_PASSWORD }}" \
-            -var="db_name=${{ secrets.DB_NAME }}" \
-            -var="cognito_jwks_url=${{ secrets.AWS_COGNITO_JWKS_URL }}" \
-            -var="ecr_image_url=${{ needs.build_and_push.outputs.ECR_URL }}" \
-            -var="ecs_task_execution_role_arn=${{ secrets.ROLE }}" \
-            -var="vpc_id=${{ secrets.VPC_ID }}" \
-            -var="public_subnets=${{ secrets.PUBLIC_SUBNETS }}" \
-            -var="private_subnets=${{ secrets.PRIVATE_SUBNETS }}" \
-            -var="security_groups=${{ secrets.SECURITY_GROUP }}" \
-            -var="aws_bucket_name=${{ secrets.AWS_BUCKET_NAME }}" \
-            -var="sendgrid_api_key=${{ secrets.SENDGRID_API_KEY }}" \
-            -var="sendgrid_template_id=${{ secrets.SENDGRID_TEMPLATE_ID }}" \
-            -var="s3_queue_url=${{ secrets.AWS_S3_QUEUE_URL }}" \
-            -var="video_input_queue_url=${{ secrets.AWS_VIDEO_INPUT_QUEUE_URL }}" \
-            -var="video_output_queue_url=${{ secrets.AWS_VIDEO_OUTPUT_QUEUE_URL }}" \
-            
+          terraform apply -auto-approve
 
       - name: Update ECS Service
         if: env.service_exists == 'true'
