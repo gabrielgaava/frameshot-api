@@ -49,6 +49,7 @@ func main() {
 	router.MaxMultipartMemory = 8 << 20
 	router.POST("/requests", requestHandler.Register)
 	router.GET("/requests", requestHandler.ListUsers)
+	router.GET("/healthcheck", requestHandler.HealthCheck)
 
 	defer router.Run("localhost:8080")
 }

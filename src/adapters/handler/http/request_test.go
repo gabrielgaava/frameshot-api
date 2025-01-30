@@ -211,3 +211,15 @@ func TestRequestHandler_InvalidToken(t *testing.T) {
 	router.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
+
+func TestRequestHandler_HealthCheck(t *testing.T) {
+
+	handler, router, _ := setUp(false)
+	router.GET("/healthcheck", handler.HealthCheck)
+
+	req, _ := http.NewRequest(http.MethodGet, "/healthcheck", nil)
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
