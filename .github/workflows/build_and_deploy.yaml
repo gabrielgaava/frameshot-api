@@ -85,7 +85,29 @@ jobs:
         if: env.service_exists == 'false'
         run: |
           cd infra/
-          terraform apply -auto-approve -var="ecr_image_url=${{ needs.build_and_push.outputs.ECR_URL }}"
+          terraform apply -auto-approve \
+            -var="aws_access_key=${{ secrets.AWS_ACCESS_KEY }}" \
+            -var="aws_secret_key=${{ secrets.AWS_SECRET_KEY }}" \
+            -var="aws_session_token=${{ secrets.AWS_SESSION_TOKEN }}" \
+            -var="aws_region=${{ secrets.AWS_REGION }}" \
+            -var="db_connection=${{ secrets.DB_CONNECTION }}" \
+            -var="db_host=${{ secrets.DB_HOST }}" \
+            -var="db_master_username=${{ secrets.DB_USER }}" \
+            -var="db_master_password=${{ secrets.DB_PASSWORD }}" \
+            -var="db_name=${{ secrets.DB_NAME }}" \
+            -var="cognito_jwks_url=${{ secrets.AWS_COGNITO_JWKS_URL }}" \
+            -var="ecr_image_url=${{ needs.build_and_push.outputs.ECR_URL }}" \
+            -var="ecs_task_execution_role_arn=${{ secrets.ROLE }}" \
+            -var="vpc_id=${{ secrets.VPC_ID }}" \
+            -var="subnets=${{ secrets.SUBNETS }}" \
+            -var="security_groups=${{ secrets.SECURITY_GROUP }}" \
+            -var="aws_bucket_name=${{ secrets.AWS_BUCKET_NAME }}" \
+            -var="sendgrid_api_key=${{ secrets.SENDGRID_API_KEY }}" \
+            -var="sendgrid_template_id=${{ secrets.SENDGRID_TEMPLATE_ID }}" \
+            -var="s3_queue_url=${{ secrets.AWS_S3_QUEUE_URL }}" \
+            -var="video_input_queue_url=${{ secrets.AWS_VIDEO_INPUT_QUEUE_URL }}" \
+            -var="video_output_queue_url=${{ secrets.AWS_VIDEO_OUTPUT_QUEUE_URL }}" \
+            
 
       - name: Update ECS Service
         if: env.service_exists == 'true'
