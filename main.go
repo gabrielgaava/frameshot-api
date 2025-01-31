@@ -51,7 +51,7 @@ func main() {
 	router.GET("/requests", requestHandler.ListUsers)
 	router.GET("/healthcheck", requestHandler.HealthCheck)
 
-	defer router.Run("localhost:8080")
+	defer router.Run("0.0.0.0:8080")
 }
 
 // Load de .env file and create a pointer to all its configuration keys
