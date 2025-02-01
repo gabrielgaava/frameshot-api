@@ -33,6 +33,7 @@ func (service *MailService) NotifyRequestStatus(data *entity.Request, status str
 	p.AddTos(tos...)
 	p.SetDynamicTemplateData("request_id", idString)
 	p.SetDynamicTemplateData("status_text", status)
+	p.SetDynamicTemplateData("download_link", data.ZipOutputKey)
 	m.AddPersonalizations(p)
 
 	request := sendgrid.GetRequest(service.Config.Key, "/v3/mail/send", "https://api.sendgrid.com")
