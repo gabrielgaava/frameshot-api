@@ -108,18 +108,16 @@ func (usecase *RequestUseCase) HandleUploadNotification(ctx context.Context, msg
 
 	// Loop for each record of the S3 Event
 	for _, record := range event.Records {
-		if record.S3.ConfigurationID == "VideoUploaded" {
-			var fileKey string = record.S3.Object.Key
-			fmt.Println("Bucket:", record.S3.Bucket.Name)
-			fmt.Println("Key:", record.S3.Object.Key)
-			fmt.Println("Size:", record.S3.Object.Size)
+		var fileKey string = record.S3.Object.Key
+		fmt.Println("Bucket:", record.S3.Bucket.Name)
+		fmt.Println("Key:", record.S3.Object.Key)
+		fmt.Println("Size:", record.S3.Object.Size)
 
-			// Update status on Database
-			request, _ := usecase.repository.UpdateStatusByVideoKey(ctx, string(entity.InProgress), fileKey)
+		// Update status on Database
+		request, _ := usecase.repository.UpdateStatusByVideoKey(ctx, string(entity.InProgress), fileKey)
 
-			// Sent Message to SQS to Start Upload
-			usecase.queue.SendVideoProccessToQueue(request)
-		}
+		// Sent Message to SQS to Start Upload
+		usecase.queue.SendVideoProccessToQueue(request)
 	}
 
 }
